@@ -18,7 +18,7 @@
    - name: waiting for server booting up
      local_action: wait_for
      args:
-       host: ''
+       host: all
        port: 22
        delay: 30
        timeout: 600

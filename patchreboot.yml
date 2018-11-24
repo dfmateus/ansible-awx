@@ -8,8 +8,6 @@
      yum:
       name: '*'
       state: latest
-     when: app_process_check.stdout == ansible_distribution == ‘CentOS’ or ansible_distribution == ‘Red Hat Enterprise Linux’
-     register: yum_update
 
    - name: Reboot a slow machine that might have lots of updates to apply
      reboot:

@@ -10,7 +10,7 @@
      register: app_process_check
 
    - name: Decision point to start patching play will fail/quit,if application is running
-     fail: msg=”{{ inventory_hostname }} have running Application.Please stop the application first, then attempt patching.”
+     fail: msg=”{{ all }} have running Application.Please stop the application first, then attempt patching.”
      when: app_process_check.stdout == “process_running”
 
    - name: upgrade all packages on the server if application is stopped

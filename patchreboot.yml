@@ -11,16 +11,6 @@
      when: app_process_check.stdout == ansible_distribution == ‘CentOS’ or ansible_distribution == ‘Red Hat Enterprise Linux’
      register: yum_update
 
-   - name: Reboot immediately if there was a change.
-     shell: "sleep 5 && reboot"
-     async: 1
-     poll: 0
-     when: task_result is changed
-
-  - name: Wait for the reboot to complete if there was a change.
-    wait_for_connection:
-      connect_timeout: 20
-      sleep: 5
-      delay: 5
-      timeout: 300
-    when: task_result is changed
+   - name: Reboot a slow machine that might have lots of updates to apply
+  reboot:
+    reboot_timeout: 3600

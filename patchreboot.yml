@@ -4,20 +4,11 @@
   ignore_errors: yes
 
   tasks:
-   - name: verify application/database processes are not running
-     shell: if ps -eaf | egrep ‘apache|http’|grep -v grep > /dev/null ;then echo ‘process_running’;else echo ‘process_not_running’;fi
-     ignore_errors: true
-     register: app_process_check
-
-   - name: Decision point to start patching play will fail/quit,if application is running
-     fail: msg=”{{ all }} have running Application.Please stop the application first, then attempt patching.”
-     when: app_process_check.stdout == “process_running”
-
-   - name: upgrade all packages on the server if application is stopped
+   - name: upgrade all packages on the server
      yum:
       name: '*'
       state: latest
-     when: app_process_check.stdout == “process_not_running” and ansible_distribution == ‘CentOS’ or ansible_distribution == ‘Red Hat Enterprise Linux’
+     when: app_process_check.stdout == ansible_distribution == ‘CentOS’ or ansible_distribution == ‘Red Hat Enterprise Linux’
      register: yum_update
 
    - name: Check if reboot required after kernel update.
@@ -25,7 +16,7 @@
      ignore_errors: true
      register: reboot_required
 
-   - name: restart system
+   - name: Restart system
      command: shutdown -r +1 “Rebooting System After Patching”
      async: 0
      poll: 0

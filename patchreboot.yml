@@ -12,5 +12,5 @@
      register: yum_update
 
    - name: Reboot a slow machine that might have lots of updates to apply
-  reboot:
-    reboot_timeout: 3600
+     reboot:
+       reboot_timeout: 3600

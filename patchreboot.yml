@@ -5,8 +5,7 @@
 
   tasks:
     - name: Check RHN or local repository connectivity
-      shell:
-        cmd: yum repolist  > /dev/null 2>&1; if [ $? -eq 0 ]; then echo "Repository found"; else echo "No repository found"; fi
+      shell: yum repolist  > /dev/null 2>&1; if [ $? -eq 0 ]; then echo "Repository found"; else echo "No repository found"; fi
       register: repo_status
 
     - name: Failed if no repository found

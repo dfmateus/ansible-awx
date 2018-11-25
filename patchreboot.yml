@@ -16,22 +16,39 @@
         warn: no
       when: repo_status.stdout != "Repository found"
 
-    - name: Update all packages, exclude in (/etc/lvm.conf) OpenJDK* to avoid issues at Hortonworks HDP/HDF
+    - name: Update all packages, exclude in (/etc/lvm.conf) package [ OpenJDK* ] to avoid issues at Hortonworks HDP/HDF
       yum:
         name: '*'
         state: latest
-      register: task_result
+      when: ansible_distribution == ‘CentOS’ or ansible_distribution == ‘Red Hat Enterprise Linux’
+      register: yum_update
+
+    - name: Verify server make any updates of Packages 
+      debug:
+        msg: Server has made some updates of Packages, after task will be check if Kernel has updated and needed reboot
+      when: yum_update is changed
+
+    - name: Check if reboot required after kernel update.
+      shell: KERNEL_NEW=$(rpm -q –last kernel |head -1 | awk ‘{print $1}’ | sed ‘s/kernel-//’); KERNEL_NOW=$(uname -r); if [[ $KERNEL_NEW != $KERNEL_NOW ]]; then echo “reboot_needed”; else echo “reboot_not_needed”; fi
+      ignore_errors: true
+      register: reboot_required
 
     - name: Reboot a slow machine that might have lots of updates to apply
-      shell: sleep 10 && /sbin/shutdown -r now
+      shell: sleep 5 && /sbin/shutdown -r now
       async: 300
       poll: 0
       become: true
-      when: task_result is changed
+      when: reboot_required.stdout == “reboot_needed”
+      register: reboot_started
+      ignore_errors: true
 
     - name: Wait for the server to finish rebooting
       wait_for_connection:
         delay: 15
         sleep: 15
         timeout: 300
-      when: task_result is changed
+      when: reboot_started|changed
+
+    - name: Execute 'uptime' when the host is comming back, after rebooting
+      shell: uptime
+      when: reboot_started|changed

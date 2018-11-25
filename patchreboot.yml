@@ -23,7 +23,7 @@
       when: ansible_distribution == ‘CentOS’ or ansible_distribution == ‘Red Hat Enterprise Linux’
       register: yum_update
 
-    - name: Verify server make any updates of Packages 
+    - name: Verify server make any updates of Packages
       debug:
         msg: Server has made some updates of Packages, after task will be check if Kernel has updated and needed reboot
       when: yum_update is changed

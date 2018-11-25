@@ -32,7 +32,6 @@
         yum:
           name: "*"
           state: latest
-        when: ansible_distribution == ‘CentOS’ or ansible_distribution == ‘Red Hat Enterprise Linux’
 
       - name: Install yum-utils package that provides needs-restarting command which tells us if the system reboot is required after the update.
         package:
@@ -58,7 +57,7 @@
           delay: 20
         register: reboot_result
 
-      - name: Show how long reboot takes time to be restarted 
+      - name: Show how long reboot takes time to be restarted
         debug:
           msg: "The system rebooted in {{ reboot_result.elapsed }} seconds."
 

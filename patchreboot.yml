@@ -4,19 +4,32 @@
   ignore_errors: yes
 
   tasks:
-   - name: Update all packages on the server
-     yum:
-      name: '*'
-      state: latest
+    - name: Check RHN or local repository connectivity
+      shell:
+        cmd: yum repolist  > /dev/null 2>&1; if [ $? -eq 0 ]; then echo "Repository found"; else echo "No repository found"; fi
+      register: repo_status
 
-   - name: Reboot a slow machine that might have lots of updates to apply
-     shell: sleep 10 && /sbin/shutdown -r now
-     async: 300
-     poll: 0
-     become: true
+    - name: Failed if no repository found
+      fail:
+        msg: "repository not found on {{ ansible_hostname }}"
+      when: repo_status.stdout != "Repository found"
 
-   - name: Wait for the server to finish rebooting
-     wait_for_connection:
-       delay: 15
-       sleep: 15
-       timeout: 300
+    - name: Update all packages, exclude in (/etc/lvm.conf) OpenJDK* to avoid issues at Hortonworks HDP/HDF
+      yum:
+        name: '*'
+        state: latest
+      register: task_result
+
+    - name: Reboot a slow machine that might have lots of updates to apply
+      shell: sleep 10 && /sbin/shutdown -r now
+      async: 300
+      poll: 0
+      become: true
+      when: task_result is changed
+
+    - name: Wait for the server to finish rebooting
+      wait_for_connection:
+        delay: 15
+        sleep: 15
+        timeout: 300
+      when: task_result is changed

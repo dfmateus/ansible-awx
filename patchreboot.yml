@@ -11,6 +11,7 @@
     - name: Failed if no repository found
       fail:
         msg: "repository not found on {{ ansible_hostname }}"
+        warn: no
       when: repo_status.stdout != "Repository found"
 
     - name: Update all packages, exclude in (/etc/lvm.conf) OpenJDK* to avoid issues at Hortonworks HDP/HDF

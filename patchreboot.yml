@@ -4,51 +4,42 @@
   ignore_errors: yes
 
   tasks:
-    - name: Check RHN or local repository connectivity
-      shell:
-        cmd: yum repolist  > /dev/null 2>&1; if [ $? -eq 0 ]; then echo "Repository found"; else echo "No repository found"; fi
-        warn: no
-      register: repo_status
-
-    - name: Failed if no repository found
-      fail:
-        msg: "repository not found on {{ ansible_hostname }}"
-        warn: no
-      when: repo_status.stdout != "Repository found"
-
-    - name: Update all packages, exclude in (/etc/lvm.conf) package [ OpenJDK* ] to avoid issues at Hortonworks HDP/HDF
-      yum:
-        name: '*'
-        state: latest
-      when: ansible_distribution == ‘CentOS’ or ansible_distribution == ‘Red Hat Enterprise Linux’
-      register: yum_update
-
-    - name: Verify server make any updates of Packages
-      debug:
-        msg: Server has made some updates of Packages, after task will be check if Kernel has updated and needed reboot
-      when: yum_update is changed
-
-    - name: Check if reboot required after kernel update.
-      shell: KERNEL_NEW=$(rpm -q –last kernel |head -1 | awk ‘{print $1}’ | sed ‘s/kernel-//’); KERNEL_NOW=$(uname -r); if [[ $KERNEL_NEW != $KERNEL_NOW ]]; then echo “reboot_needed”; else echo “reboot_not_needed”; fi
-      ignore_errors: true
-      register: reboot_required
-
-    - name: Reboot a slow machine that might have lots of updates to apply
-      shell: sleep 5 && /sbin/shutdown -r now
-      async: 300
-      poll: 0
-      become: true
-      when: reboot_required.stdout == “reboot_needed”
-      register: reboot_started
-      ignore_errors: true
-
-    - name: Wait for the server to finish rebooting
-      wait_for_connection:
-        delay: 15
-        sleep: 15
-        timeout: 300
-      when: reboot_started|changed
-
-    - name: Execute 'uptime' when the host is comming back, after rebooting
-      shell: uptime
-      when: reboot_started|changed
+  - name: check packages for updates
+    shell: yum list updates | awk 'f;/Updated Packages/{f=1;}' | awk '{ print $1 }'
+    changed_when: updates.stdout_lines | length > 0
+    args:
+      warn: false
+    register: updates
+  - name: display count
+    debug:
+      msg: "Found {{ updates.stdout_lines | length }} packages to be updated:\n\n{{ updates.stdout }}"
+  - when: updates.stdout_lines | length > 0
+    block:
+      - name: install updates using yum
+        yum:
+          name: "*"
+          state: latest
+      - name: install yum-utils
+        package:
+          name: yum-utils
+      - name: check if reboot is required
+        shell: needs-restarting -r
+        failed_when: false
+        register: reboot_required
+        changed_when: false
+  - when: updates.stdout_lines | length > 0 and reboot_required.rc != 0
+    block:
+      - name: reboot the server if required
+        shell: sleep 3; reboot
+        ignore_errors: true
+        changed_when: false
+        async: 1
+        poll: 0
+      - name: wait for server to come back after reboot
+        wait_for_connection:
+          timeout: 600
+          delay: 20
+        register: reboot_result
+      - name: reboot time
+        debug:
+          msg: "The system rebooted in {{ reboot_result.elapsed }} seconds."

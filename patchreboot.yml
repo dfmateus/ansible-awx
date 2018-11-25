@@ -4,42 +4,64 @@
   ignore_errors: yes
 
   tasks:
-  - name: check packages for updates
+  - name: Check RHN or local repository connectivity
+    shell:
+      cmd: yum repolist  > /dev/null 2>&1; if [ $? -eq 0 ]; then echo "Repository found"; else echo "No repository found"; fi
+      warn: no
+    register: repo_status
+
+  - name: Failed if no repository found
+    fail:
+      msg: "repository not found on {{ ansible_hostname }}"
+      warn: no
+    when: repo_status.stdout != "Repository found"
+
+  - name: Check packages for updates
     shell: yum list updates | awk 'f;/Updated Packages/{f=1;}' | awk '{ print $1 }'
     changed_when: updates.stdout_lines | length > 0
     args:
       warn: false
     register: updates
-  - name: display count
+
+  - name: display how packages needs to be update
     debug:
       msg: "Found {{ updates.stdout_lines | length }} packages to be updated:\n\n{{ updates.stdout }}"
   - when: updates.stdout_lines | length > 0
     block:
-      - name: install updates using yum
+      - name: Update all packages, exclude in (/etc/lvm.conf) package [ OpenJDK* ] to avoid issues at Hortonworks HDP/HDF
         yum:
           name: "*"
           state: latest
-      - name: install yum-utils
+        when: ansible_distribution == ‘CentOS’ or ansible_distribution == ‘Red Hat Enterprise Linux’
+
+      - name: Install yum-utils package that provides needs-restarting command which tells us if the system reboot is required after the update.
         package:
           name: yum-utils
-      - name: check if reboot is required
+
+      - name: Check if reboot required after update.
         shell: needs-restarting -r
         failed_when: false
         register: reboot_required
         changed_when: false
   - when: updates.stdout_lines | length > 0 and reboot_required.rc != 0
     block:
-      - name: reboot the server if required
-        shell: sleep 3; reboot
+      - name: Reboot a slow machine after update some packages and needs to be restart to apply
+        shell: sleep 5 && /sbin/shutdown -r now
         ignore_errors: true
         changed_when: false
         async: 1
         poll: 0
-      - name: wait for server to come back after reboot
+
+      - name: Wait for the server to finish rebooting...
         wait_for_connection:
           timeout: 600
           delay: 20
         register: reboot_result
-      - name: reboot time
+
+      - name: Show how long reboot takes time to be restarted 
         debug:
           msg: "The system rebooted in {{ reboot_result.elapsed }} seconds."
+
+      - name: Execute 'uptime' when the host is comming back, after rebooting
+        shell: uptime
+        when: reboot_started|changed

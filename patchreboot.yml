@@ -62,5 +62,6 @@
           msg: "The system rebooted in {{ reboot_result.elapsed }} seconds."
 
       - name: Execute 'uptime' when the host is comming back, after rebooting
-        shell: uptime
-        when: reboot_started|changed
+        shell:
+          cmd: uptime
+          warn: no
